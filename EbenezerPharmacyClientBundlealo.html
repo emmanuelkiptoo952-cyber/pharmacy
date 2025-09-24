@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ebenezer Pharmacy Management System — Extended</title>
+<style>
+  /* ------------------------------
+     Core theme variables (can be changed by settings)
+     ------------------------------ */
+  :root {
+    --accent: #198754;
+    --accent-hover: #157347;
+    --danger: #dc3545;
+    --muted: #666;
+    --bg: #f0f4fa;
+    --card-bg: #fff;
+    --text: #111;
+    --glass: rgba(255,255,255,0.6);
+  }
+
+  /* Dark theme overrides (applied via body.dark) */
+  body.dark {
+    --bg: #0f1720;
+    --card-bg: #0b1220;
+    --text: #e6eef6;
+    --muted: #9aa6b2;
+    --glass: rgba(255,255,255,0.03);
+  }
+
+  /* ------------------------------
+     Page styles
+     ------------------------------ */
+  body {
+    margin:0;
+    font-family:Segoe UI, Tahoma, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    height:100vh;
+    overflow:hidden;
+  }
+  aside {
+    width:300px;
+    min-width:240px;
+    background:var(--accent);
+    color:#fff;
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  aside h2{font-size:1rem;margin-bottom:6px;line-height:1.2}
+  aside small{opacity:0.95}
+  aside button{
+    background:none;border:0;color:#fff;text-align:left;padding:10px;border-radius:8px;cursor:pointer;
+    margin-bottom:6px;font-size:0.95rem;transition:background 0.15s, transform .08s;
+  }
+  aside button:hover{background:var(--accent-hover); transform:translateX(4px)}
+  main{flex:1;padding:20px;overflow:auto;min-height:0}
+  .card{background:var(--card-bg);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);margin-bottom:16px}
+  h3{color:var(--accent);margin-top:0;display:flex;align-items:center;gap:10px}
+  .flex-row{display:flex;gap:10px;align-items:center}
+  .muted{color:var(--muted);font-size:0.9rem}
+  table{width:100%;border-collapse:collapse;background:transparent;border-radius:8px;overflow:hidden;margin-top:10px}
+  th{background:var(--accent);color:#fff;padding:10px;text-align:left;position:sticky;top:0}
+  td{padding:10px;border-bottom:1px solid rgba(0,0,0,0.06)}
+  tr:hover td{background:rgba(0,0,0,0.02)}
+  button.action{background:var(--accent);color:#fff;border:0;padding:6px 12px;border-radius:8px;cursor:pointer}
+  button.action:hover{background:var(--accent-hover)}
+  button.danger{background:var(--danger);color:#fff;border:0;padding:6px 12px;border-radius:8px}
+  input,select,textarea{padding:8px;border:1px solid #ccc;border-radius:6px;margin:4px 0;width:100%;background:transparent;color:var(--text)}
+  .small{font-size:0.85rem;padding:6px;border-radius:6px}
+  .top-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .badge{display:inline-block;background:var(--glass);padding:4px 8px;border-radius:999px;font-size:0.85rem}
+  #alertsArea{max-height:160px;overflow:auto}
+  .alertItem{padding:6px;border-radius:8px;margin-bottom:6px;background:rgba(0,0,0,0.03)}
+  /* print styles for invoice */
+  @media print {
+    body *{visibility:visible}
+    .no-print{display:none}
+    .card{box-shadow:none;border-radius:0}
+  }
+  /* small responsive */
+  @media (max-width:900px){
+    aside{display:none}
+    body{flex-direction:column}
+    main{padding:12px}
+  }
+
+  /* lots of comments below to help navigation */
+  /* -------------------------------------------------------
+     End of styles
+     ------------------------------------------------------- */
+</style>
+</head>
+<body>
+
+<!-- ======================================
+     LEFT NAV (original layout preserved and kept)
+     ====================================== -->
+<aside>
+  <h2>💊 Ebenezer Pharmacy<br>Management System<br><small>for the Sale & Supply of Medicine</small></h2>
+
+  <!-- Keep original buttons in same order -->
+  <button onclick="showSection('sales')">All Sales</button>
+  <button onclick="showSection('patients')">Patients & Medicines</button>
+  <button onclick="showSection('medicines')">Medicines</button>
+  <button onclick="showSection('reports')">Reports</button>
+  <button onclick="showSection('staffs')">Staffs</button>
+  <button onclick="showSection('settings')">Settings</button>
+
+  <hr style="opacity:0.12;border:none;height:1px;background:rgba(255,255,255,0.12)">
+
+  <!-- Alerts summary -->
+  <div class="muted">Alerts</div>
+  <div id="alertsArea" class="muted" style="overflow:auto;max-height:180px"></div>
+
+  <hr style="opacity:0.12;border:none;height:1px;background:rgba(255,255,255,0.12)">
+
+  <!-- Quick actions -->
+  <div class="top-actions">
+    <button class="small" onclick="openLoginModal()">Switch User</button>
+    <button class="small" onclick="exportAll()">Backup</button>
+    <button class="small" onclick="showSection('settings');lockSettings();">Settings</button>
+    <button class="small" onclick="generateSampleData()">Generate Demo</button>
+  </div>
+
+  <div style="flex:1"></div>
+
+  <div class="muted" style="font-size:12px">Version: <strong>Extended v1.0</strong></div>
+</aside>
+
+<!-- ======================================
+     MAIN
+     ====================================== -->
+<main>
+
+  <!-- ======================================================
+       SALES (keeps original structure but adds search, export)
+       ====================================================== -->
+  <section id="sales" class="card">
+    <h3>💰 All Sales <span class="badge" id="salesCount">0</span></h3>
+
+    <div class="flex-row" style="margin-bottom:8px;">
+      <input id="salesSearch" placeholder="Search by patient, medicine, or id" oninput="renderSales()" style="flex:1">
+      <select id="salesFilter" onchange="renderSales()" class="small">
+        <option value="">All</option>
+        <option value="today">Today</option>
+        <option value="7d">Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+      </select>
+      <button class="action" onclick="exportSalesCSV()">Export CSV</button>
+      <button class="small" onclick="clearSales()">Clear Sales</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Patient</th><th>Medicines</th><th>Total</th><th>Time</th><th class="no-print">Actions</th></tr>
+      </thead>
+      <tbody id="salesTable"></tbody>
+    </table>
+  </section>
+
+  <!-- ======================================================
+       PATIENTS (unchanged but persisted)
+       ====================================================== -->
+  <section id="patients" class="card" style="display:none">
+    <h3>🧑‍⚕️ Patients & Medicines Given</h3>
+    <div style="display:grid;grid-template-columns:1fr 220px 100px 120px;gap:8px;align-items:end">
+      <input id="patientName" placeholder="Patient Name">
+      <select id="patientMed"></select>
+      <input id="patientQty" type="number" placeholder="Quantity">
+      <button class="action" onclick="giveMedicine()">➕ Give Medicine</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <table>
+        <thead><tr><th>Patient</th><th>Medicine</th><th>Qty</th><th>Time</th></tr></thead>
+        <tbody id="patientsTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================================================
+       MEDICINES (preserve original UI, add supplier, expiry, search/filter/edit)
+       ====================================================== -->
+  <section id="medicines" class="card" style="display:none">
+    <h3>💊 Medicines <span class="badge" id="medCount">0</span></h3>
+
+    <!-- add/edit form -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:end">
+      <input id="newMedName" placeholder="Medicine Name">
+      <input id="newMedType" placeholder="Category">
+      <input id="newMedSupplier" placeholder="Supplier">
+      <input id="newMedExpiry" type="date" placeholder="Expiry Date">
+      <input id="newMedPrice" type="number" placeholder="Price">
+      <input id="newMedStock" type="number" placeholder="Stock">
+      <div style="grid-column:1/4;display:flex;gap:8px">
+        <button class="action" onclick="addMedicine()">➕ Add Medicine</button>
+        <button class="small" onclick="openBulkAddModal()">Bulk Add</button>
+        <button class="small" onclick="exportMedsCSV()">Export Medicines</button>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <input id="medSearch" placeholder="Search medicines" oninput="renderMeds()" style="flex:1">
+      <select id="medFilter" onchange="renderMeds()">
+        <option value="">All</option>
+        <option value="expiring_30">Expiring in 30 days</option>
+        <option value="low_stock">Low stock (&lt;10)</option>
+      </select>
+    </div>
+
+    <table style="margin-top:8px">
+      <thead>
+        <tr>
+          <th>Name</th><th>Category</th><th>Supplier</th><th>Expiry</th><th>Price</th><th>Stock</th><th>Time Added</th><th class="no-print">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="medTable"></tbody>
+    </table>
+  </section>
+
+  <!-- ======================================================
+       REPORTS (enhanced)
+       ====================================================== -->
+  <section id="reports" class="card" style="display:none">
+    <h3>📑 Reports & Analytics</h3>
+
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="action" onclick="generateReport()">📄 Generate Sales Report</button>
+      <button class="small" onclick="generateProfitReport()">Profit Summary</button>
+      <button class="small" onclick="clearLogs()">Clear Audit Log</button>
+      <div style="flex:1"></div>
+      <button class="small" onclick="printReport()">Print Report</button>
+    </div>
+
+    <div id="reportContent" style="margin-top:12px" class="muted">Use Generate Sales Report to show summary.</div>
+
+    <hr style="margin:12px 0">
+    <h4>Audit Log</h4>
+    <div id="auditLog" style="max-height:220px;overflow:auto" class="muted"></div>
+  </section>
+
+  <!-- ======================================================
+       STAFFS (preserve default Admin & Pharmacist, add role management)
+       ====================================================== -->
+  <section id="staffs" class="card" style="display:none">
+    <h3>👥 Staffs</h3>
+
+    <div style="display:flex;gap:8px">
+      <input id="newStaff" placeholder="Staff Name">
+      <select id="newStaffRole">
+        <option value="Pharmacist">Pharmacist</option>
+        <option value="Cashier">Cashier</option>
+        <option value="Admin">Admin</option>
+      </select>
+      <button class="action" onclick="addStaff()">➕ Add Staff</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <table>
+        <thead><tr><th>Name</th><th>Role</th><th>Added</th><th class="no-print">Actions</th></tr></thead>
+        <tbody id="staffList"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================================================
+       SETTINGS (protected)
+       ====================================================== -->
+  <section id="settings" class="card" style="display:none">
+    <h3>⚙️ Settings</h3>
+    <p class="muted">Protected section. Enter password to continue.</p>
+    <button class="action" onclick="lockSettings()">🔒 Enter Password</button>
+
+    <div id="settingsContent" style="display:none;margin-top:10px">
+      <p>✅ Access Granted! Manage sensitive settings here.</p>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1">
+          <label class="muted">Theme Accent</label>
+          <input type="color" id="themeColor" value="#198754" onchange="changeTheme(this.value)">
+        </div>
+        <div>
+          <label class="muted">Dark Mode</label><br>
+          <button class="small" onclick="toggleDarkMode()">Toggle</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label class="muted">Export / Import</label>
+        <div style="display:flex;gap:8px">
+          <button class="action" onclick="exportAll()">Backup</button>
+          <input type="file" id="importFile" class="small" onchange="importAll(this)" accept=".json">
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label class="muted">Current User</label>
+        <div id="currentUser" class="muted">Not logged in</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ======================================
+     Modals and Utilities
+     ====================================== -->
+<div id="lockScreen" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;visibility:hidden">
+  <div id="lockBox" style="background:#fff;padding:20px;border-radius:10px;width:320px;text-align:center">
+    <h3>Enter Password</h3>
+    <input id="settingsPass" type="password" placeholder="Password" style="width:100%;padding:8px;margin:8px 0">
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="action" onclick="checkPassword()">Unlock</button>
+      <button class="small" onclick="closeLock()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Simple login modal to "act as" a staff member -->
+<div id="loginModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center">
+  <div style="background:var(--card-bg);padding:18px;border-radius:10px;width:360px;">
+    <h3>Switch User</h3>
+    <div style="display:flex;gap:8px">
+      <select id="loginAs" style="flex:1"></select>
+      <input id="loginPass" placeholder="Password (optional)" style="flex:1">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+      <button class="small" onclick="closeLoginModal()">Close</button>
+      <button class="action" onclick="doLogin()">Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk add modal -->
+<div id="bulkModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center">
+  <div style="background:var(--card-bg);padding:16px;border-radius:10px;width:640px;max-width:95%">
+    <h3>Bulk Add Medicines (CSV format: name,type,supplier,expiry,price,stock)</h3>
+    <textarea id="bulkText" style="width:100%;height:200px"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+      <button class="small" onclick="closeBulkAddModal()">Close</button>
+      <button class="action" onclick="parseBulk()">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice area (hidden, used for printing) -->
+<div id="invoiceArea" style="display:none"></div>
+
+<script>
+/* ============================================================
+   Data storage objects and initialization
+   ============================================================ */
+
+/* Keep compatibility with your original variable names */
+let medicines = [];
+let sales = [];
+let patients = [];
+let staffs = []; // now each staff is {name,role,addedAt,password(optional)}
+let audit = [];
+let settings = {
+  themeColor: '#198754',
+  darkMode: false,
+  lockPassword: '20439736', // default; can be stored and changed in future
+  currentUser: null // {name,role}
+};
+
+/* ---------- Helper utilities ---------- */
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,10); }
+
+function nowStr(){ return new Date().toLocaleString(); }
+
+function saveAll(){
+  try {
+    const payload = {medicines,sales,patients,staffs,audit,settings};
+    localStorage.setItem('eps_data_v1', JSON.stringify(payload));
+    logAction('system','backup','Saved local data');
+  }catch(e){ console.error('save error',e) }
+}
+
+function loadAll(){
+  const raw = localStorage.getItem('eps_data_v1');
+  if(!raw) return;
+  try{
+    const p = JSON.parse(raw);
+    medicines = p.medicines||[];
+    sales = p.sales||[];
+    patients = p.patients||[];
+    staffs = p.staffs||[];
+    audit = p.audit||[];
+    settings = Object.assign(settings, p.settings||{});
+    applySettings();
+  }catch(e){ console.error('load error',e) }
+}
+
+/* Audit logger */
+function logAction(user, action, detail){
+  const entry = {id:uid('log'),user:user||'system',action,detail,time:new Date().toLocaleString()};
+  audit.unshift(entry);
+  if(audit.length>500) audit.length = 500;
+  renderAudit();
+  saveAll();
+}
+
+/* ============================================================
+   Render helpers (medicines, patients, sales, staff, alerts)
+   ============================================================ */
+function showSection(id){
+  document.querySelectorAll("main section").forEach(sec => sec.style.display='none');
+  const el = document.getElementById(id);
+  if(el) el.style.display='block';
+}
+
+/* ------------ MEDICINES ------------- */
+function addMedicine(){
+  const name=document.getElementById("newMedName").value.trim();
+  const type=document.getElementById("newMedType").value.trim();
+  const supplier=document.getElementById("newMedSupplier").value.trim();
+  const expiry=document.getElementById("newMedExpiry").value;
+  const price=parseFloat(document.getElementById("newMedPrice").value);
+  const stock=parseInt(document.getElementById("newMedStock").value);
+
+  if(!name||!type||!supplier||!expiry||isNaN(price)||isNaN(stock)) {
+    return alert("Fill all medicine details");
+  }
+
+  const id = Date.now();
+  medicines.push({id,idStr: id, name,type,supplier,expiry,price,stock,time:new Date().toLocaleString()});
+  updatePatientMedSelect();
+  renderMeds();
+  logAction(settings.currentUser?.name||'system','add_medicine',`${name} (${type})`);
+  saveAll();
+
+  // clear inputs
+  document.getElementById("newMedName").value='';
+  document.getElementById("newMedType").value='';
+  document.getElementById("newMedSupplier").value='';
+  document.getElementById("newMedExpiry").value='';
+  document.getElementById("newMedPrice").value='';
+  document.getElementById("newMedStock").value='';
+}
+
+/* Renders medicines table with search and filters */
+function renderMeds(){
+  const tbody=document.getElementById("medTable"); tbody.innerHTML='';
+  const q = (document.getElementById("medSearch")?.value || '').toLowerCase();
+  const filter = document.getElementById("medFilter")?.value || '';
+
+  const now = new Date();
+  const list = medicines.filter(m=>{
+    if(q){
+      if(!(m.name.toLowerCase().includes(q) || (m.type||'').toLowerCase().includes(q) || (m.supplier||'').toLowerCase().includes(q)))
+        return false;
+    }
+    if(filter==='expiring_30'){
+      const e = new Date(m.expiry);
+      const diff = (e - now)/(1000*60*60*24);
+      if(isNaN(diff) || diff>30) return false;
+    }else if(filter==='low_stock'){
+      if(m.stock>=10) return false;
+    }
+    return true;
+  });
+
+  list.forEach(m=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `
+      <td>${m.name}</td>
+      <td>${m.type}</td>
+      <td>${m.supplier||''}</td>
+      <td>${m.expiry||''}</td>
+      <td>${m.price}</td>
+      <td>${m.stock}</td>
+      <td>${m.time}</td>
+      <td class="no-print">
+        <button class="small" onclick="openEditMed(${m.id})">Edit</button>
+        <button class="danger" onclick="removeMed(${m.id})">Remove</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('medCount').innerText = medicines.length;
+  checkAlerts();
+}
+
+/* Remove a medicine */
+function removeMed(id){
+  if(!confirm('Remove this medicine?')) return;
+  medicines = medicines.filter(m=>m.id!==id);
+  renderMeds();
+  updatePatientMedSelect();
+  saveAll();
+  logAction(settings.currentUser?.name||'system','remove_medicine',`id:${id}`);
+}
+
+/* Edit med: open quick prompt (simple) */
+function openEditMed(id){
+  const m = medicines.find(x=>x.id===id); if(!m) return;
+  const newStock = prompt('New stock for '+m.name, m.stock);
+  if(newStock!==null){
+    const s = parseInt(newStock);
+    if(!isNaN(s)){ m.stock = s; saveAll(); renderMeds(); logAction(settings.currentUser?.name||'system','edit_medicine',`id:${id} stock->${s}`) }
+  }
+}
+
+/* Update the patients' medicine select */
+function updatePatientMedSelect(){
+  const sel=document.getElementById("patientMed"); if(!sel) return;
+  sel.innerHTML = '';
+  medicines.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.innerText = `${m.name} [${m.stock}]`;
+    sel.appendChild(opt);
+  });
+}
+
+/* Bulk add modal functions */
+function openBulkAddModal(){ document.getElementById('bulkModal').style.display='flex' }
+function closeBulkAddModal(){ document.getElementById('bulkModal').style.display='none' }
+function parseBulk(){
+  const txt = document.getElementById('bulkText').value.trim();
+  if(!txt) return alert('No data');
+  // expected CSV lines name,type,supplier,expiry,price,stock
+  const lines = txt.split(/\r?\n/).map(l=>l.trim()).filter(l=>l);
+  let added = 0;
+  lines.forEach(line=>{
+    const parts = line.split(',');
+    if(parts.length<6) return;
+    const [name,type,supplier,expiry,price,stock] = parts.map(p=>p.trim());
+    medicines.push({id:Date.now()+Math.random(),idStr:Date.now()+Math.random(),name,type,supplier,expiry,price:parseFloat(price)||0,stock:parseInt(stock)||0,time:new Date().toLocaleString()});
+    added++;
+  });
+  closeBulkAddModal();
+  document.getElementById('bulkText').value='';
+  updatePatientMedSelect();
+  renderMeds();
+  saveAll();
+  logAction(settings.currentUser?.name||'system','bulk_add',`added ${added} meds`);
+  alert('Imported '+added+' medicines');
+}
+
+/* Export medicines CSV (simple) */
+function exportMedsCSV(){
+  const header = ['name','type','supplier','expiry','price','stock'];
+  const rows = [header.join(',')].concat(medicines.map(m=>[m.name,m.type,m.supplier,m.expiry,m.price,m.stock].map(csvEscape).join(',')));
+  downloadText(rows.join('\n'),'medicines_export.csv','text/csv');
+}
+function csvEscape(v){
+  if(v==null) return '';
+  const s = String(v);
+  if(s.includes(',')||s.includes('"')||s.includes('\n')) return `"${s.replace(/"/g,'""')}"`;
+  return s;
+}
+function downloadText(txt, filename, mime='text/plain'){
+  const blob = new Blob([txt], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove() }, 500);
+}
+
+/* ------------ PATIENTS & SALES ------------- */
+function giveMedicine(){
+  const patient=document.getElementById("patientName").value.trim();
+  const medId=parseInt(document.getElementById("patientMed").value);
+  const qty=parseInt(document.getElementById("patientQty").value);
+  if(!patient||isNaN(medId)||isNaN(qty)||qty<=0) return alert("Fill all fields");
+  let med=medicines.find(m=>m.id===medId);
+  if(!med) return alert("Medicine not found");
+  if(med.stock<qty) return alert("Not enough stock!");
+
+  med.stock -= qty;
+  patients.push({id:uid('p'),patient,medicine:med.name,qty,time:new Date().toLocaleString()});
+  sales.push({id:Date.now(),patient,meds:[{name:med.name,qty}],total:qty*med.price,time:new Date().toLocaleString()});
+
+  // Log and save
+  renderMeds(); renderPatients(); renderSales();
+  updatePatientMedSelect();
+  saveAll();
+  logAction(settings.currentUser?.name||'system','sale',`${qty} x ${med.name} to ${patient}`);
+  // Offer invoice
+  setTimeout(()=>{ if(confirm('Print invoice for this sale?')) { printInvoice(sales[sales.length-1]) } }, 200);
+}
+function renderPatients(){
+  const tbody=document.getElementById("patientsTable");tbody.innerHTML='';
+  patients.forEach(p=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${p.patient}</td><td>${p.medicine}</td><td>${p.qty}</td><td>${p.time}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* Render sales with search and filter */
+function renderSales(){
+  const tbody=document.getElementById('salesTable'); tbody.innerHTML='';
+  const q = (document.getElementById('salesSearch')?.value || '').toLowerCase();
+  const filter = document.getElementById('salesFilter')?.value || '';
+  const now = Date.now();
+
+  const list = sales.filter(s=>{
+    if(q){
+      if(!(String(s.id).includes(q) || (s.patient||'').toLowerCase().includes(q) || JSON.stringify(s.meds || []).toLowerCase().includes(q))) return false;
+    }
+    if(filter==='today'){
+      const d = new Date(s.time);
+      const today = new Date(); if(d.toDateString() !== today.toDateString()) return false;
+    } else if(filter==='7d'){
+      const d = new Date(s.time);
+      if((now - d.getTime()) > 1000*60*60*24*7) return false;
+    } else if(filter==='30d'){
+      const d = new Date(s.time);
+      if((now - d.getTime()) > 1000*60*60*24*30) return false;
+    }
+    return true;
+  });
+
+  list.forEach(s=>{
+    const meds = (s.meds||[]).map(m=>`${m.name} (${m.qty})`).join(', ');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${s.id}</td><td>${s.patient}</td><td>${meds}</td><td>${s.total}</td><td>${s.time}</td>
+       <td class="no-print">
+         <button class="small" onclick='printInvoiceById("${s.id}")'>Print</button>
+         <button class="small" onclick='deleteSale("${s.id}")'>Delete</button>
+       </td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('salesCount').innerText = sales.length;
+}
+
+/* Delete sale (undo) */
+function deleteSale(id){
+  if(!confirm('Delete sale '+id+'?')) return;
+  sales = sales.filter(s=>String(s.id)!==String(id));
+  renderSales(); saveAll();
+  logAction(settings.currentUser?.name||'system','delete_sale',`id:${id}`);
+}
+
+/* Clear all sales (danger) */
+function clearSales(){
+  if(!confirm('Clear ALL sales? This cannot be undone.')) return;
+  sales = []; renderSales(); saveAll();
+  logAction(settings.currentUser?.name||'system','clear_sales','cleared');
+}
+
+/* Export sales as CSV */
+function exportSalesCSV(){
+  const header = ['id','patient','meds','total','time'];
+  const rows = [header.join(',')].concat(sales.map(s=>[s.id, s.patient, (s.meds||[]).map(m=>m.name+`(${m.qty})`).join('; '), s.total, s.time].map(csvEscape).join(',')));
+  downloadText(rows.join('\n'),'sales_export.csv','text/csv');
+}
+
+/* Print invoice for a sale object */
+function printInvoice(sale){
+  const invoiceHtml = generateInvoiceHtml(sale);
+  const w = window.open('','_blank','width=800,height=600');
+  w.document.write(invoiceHtml);
+  w.document.close();
+  // small delay then print
+  setTimeout(()=>{ w.print(); }, 500);
+}
+function printInvoiceById(id){
+  const s = sales.find(x=>String(x.id)===String(id));
+  if(!s) return alert('Sale not found');
+  printInvoice(s);
+}
+function generateInvoiceHtml(sale){
+  const items = (sale.meds||[]).map(m=>`<tr><td>${m.name}</td><td>${m.qty}</td><td>${(m.price||'')}</td></tr>`).join('');
+  const html = `
+  <html>
+  <head><title>Invoice ${sale.id}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;padding:20px;color:#222}
+      h2{color:#111}
+      table{width:100%;border-collapse:collapse}
+      td,th{padding:8px;border:1px solid #ddd}
+      .right{text-align:right}
+    </style>
+  </head>
+  <body>
+    <h2>Ebenezer Pharmacy — Invoice</h2>
+    <p><strong>Invoice:</strong> ${sale.id} <br><strong>Patient:</strong> ${sale.patient}<br><strong>Date:</strong> ${sale.time}</p>
+    <table><thead><tr><th>Medicine</th><th>Qty</th><th>Price</th></tr></thead><tbody>${items}</tbody></table>
+    <h3>Total: KSh ${sale.total}</h3>
+    <p class="muted">Thank you for your business.</p>
+  </body>
+  </html>`;
+  return html;
+}
+
+/* ------------ STAFFS ------------- */
+function addStaff(){
+  const name = document.getElementById('newStaff').value.trim();
+  const role = document.getElementById('newStaffRole').value;
+  if(!name) return;
+  // prompt for password for adding staff (keeps original behavior but more flexible)
+  const pass = prompt('Enter admin password to add staff:');
+  if(pass !== settings.lockPassword) return alert('Wrong password');
+  staffs.push({id:uid('s'),name,role,added:new Date().toLocaleString(),password:null});
+  renderStaffs();
+  saveAll();
+  logAction(settings.currentUser?.name||'system','add_staff',`${name} as ${role}`);
+  document.getElementById('newStaff').value='';
+}
+
+/* render staff list */
+function renderStaffs(){
+  const tbody = document.getElementById('staffList'); tbody.innerHTML='';
+  staffs.forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${s.name}</td><td>${s.role}</td><td>${s.added||'-'}</td>
+      <td class="no-print">
+        <button class="small" onclick="removeStaff('${s.id}')">Remove</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  // also update login dropdown
+  const loginAs = document.getElementById('loginAs'); if(loginAs){
+    loginAs.innerHTML = '';
+    staffs.forEach(s=>{ const o = document.createElement('option'); o.value = s.id; o.innerText = `${s.name} (${s.role})`; loginAs.appendChild(o) });
+  }
+}
+
+/* remove staff */
+function removeStaff(id){
+  if(!confirm('Remove staff?')) return;
+  staffs = staffs.filter(s=>s.id!==id);
+  renderStaffs(); saveAll();
+  logAction(settings.currentUser?.name||'system','remove_staff',id);
+}
+
+/* ---------- Alerts (low stock / expiry) ---------- */
+function checkAlerts(){
+  const area = document.getElementById('alertsArea'); area.innerHTML='';
+  const now = Date.now();
+  const alerts = [];
+
+  medicines.forEach(m=>{
+    if(m.stock <= 10) alerts.push({type:'low_stock',title:`Low stock: ${m.name}`,detail:`${m.stock} left`});
+    const exp = new Date(m.expiry);
+    if(!isNaN(exp.getTime())){
+      const diffDays = Math.round((exp.getTime() - now)/(1000*60*60*24));
+      if(diffDays <= 30) alerts.push({type:'expires',title:`Expiry warning: ${m.name}`,detail:`Expires in ${diffDays} days (${m.expiry})`});
+    }
+  });
+
+  if(alerts.length===0){ area.innerHTML = '<div class="muted">No alerts</div>'; return; }
+
+  alerts.forEach(a=>{
+    const d = document.createElement('div'); d.className='alertItem';
+    d.innerHTML = `<strong>${a.title}</strong><div class="muted">${a.detail}</div>`;
+    area.appendChild(d);
+  });
+}
+
+/* ---------- Reports & Audit ---------- */
+function generateReport(){
+  if(!sales.length) return document.getElementById('reportContent').innerText='No sales yet.';
+  const totalSales = sales.reduce((s,x)=>s + (x.total||0), 0);
+  const byMed = {};
+  sales.forEach(s=>{
+    (s.meds||[]).forEach(m=>{ if(!byMed[m.name]) byMed[m.name]=0; byMed[m.name]+=m.qty; });
+  });
+
+  let medHtml = '<ul>';
+  for(const k in byMed) medHtml += `<li>${k}: ${byMed[k]}</li>`;
+  medHtml += '</ul>';
+
+  document.getElementById('reportContent').innerHTML = `
+    <strong>Total Sales:</strong> KSh ${totalSales}<br>
+    <strong>Transactions:</strong> ${sales.length}<br>
+    <strong>Top Medicines:</strong> ${medHtml}
+  `;
+  logAction(settings.currentUser?.name||'system','generate_report','sales summary');
+}
+
+function generateProfitReport(){
+  // simple: assume cost = price * 0.7 (random assumption) — for demonstration
+  const totalSales = sales.reduce((s,x)=>s + (x.total||0), 0);
+  const estimatedCost = totalSales * 0.7;
+  const profit = totalSales - estimatedCost;
+  document.getElementById('reportContent').innerHTML = `<strong>Estimated Profit:</strong> KSh ${profit.toFixed(2)} (estimated)`;
+  logAction(settings.currentUser?.name||'system','generate_profit','profit summary');
+}
+
+/* Render audit */
+function renderAudit(){
+  const el = document.getElementById('auditLog'); if(!el) return;
+  el.innerHTML = '';
+  audit.slice(0,200).forEach(a=>{
+    const d = document.createElement('div'); d.className='muted';
+    d.style.padding='6px'; d.style.borderBottom='1px solid rgba(0,0,0,0.04)';
+    d.innerHTML = `<strong>${a.user}</strong> — ${a.action} <div style="font-size:12px">${a.detail} — <em>${a.time}</em></div>`;
+    el.appendChild(d);
+  });
+}
+
+/* Clear audit log (danger) */
+function clearLogs(){
+  if(!confirm('Clear audit log?')) return;
+  audit = []; saveAll(); renderAudit(); logAction(settings.currentUser?.name||'system','clear_audit','cleared audit');
+}
+
+/* ---------- Persistence: Import & Export ---------- */
+function exportAll(){
+  const payload = {medicines,sales,patients,staffs,audit,settings};
+  const data = JSON.stringify(payload, null, 2);
+  downloadText(data, 'eps_backup_'+(new Date()).toISOString().slice(0,10)+'.json', 'application/json');
+  logAction(settings.currentUser?.name||'system','export','exported backup');
+}
+
+function importAll(input){
+  const file = input.files && input.files[0];
+  if(!file) return alert('Select a file');
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const p = JSON.parse(e.target.result);
+      if(!confirm('This will replace current local data. Continue?')) return;
+      medicines = p.medicines||[]; sales = p.sales||[]; patients = p.patients||[]; staffs = p.staffs||[]; audit = p.audit||[]; settings = Object.assign(settings, p.settings||{});
+      applySettings(); renderAll(); saveAll(); alert('Imported');
+      logAction(settings.currentUser?.name||'system','import','imported backup');
+    }catch(err){ alert('Invalid file'); console.error(err) }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- UI helpers ---------- */
+function renderAll(){
+  renderMeds(); renderPatients(); renderSales(); renderStaffs(); renderAudit(); updatePatientMedSelect();
+}
+
+function printReport(){ window.print(); }
+
+/* ---------- Settings: lock, change theme, dark mode ---------- */
+function lockSettings(){ document.getElementById('lockScreen').style.visibility='visible' }
+function closeLock(){ document.getElementById('lockScreen').style.visibility='hidden' }
+function checkPassword(){
+  const pass = document.getElementById('settingsPass').value;
+  if(pass === settings.lockPassword){
+    document.getElementById('lockScreen').style.visibility='hidden';
+    document.getElementById('settingsContent').style.display='block';
+    logAction(settings.currentUser?.name||'system','unlock_settings','unlocked settings');
+  } else { alert('❌ Wrong password') }
+}
+function changeTheme(color){
+  settings.themeColor = color;
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-hover', color);
+  saveAll();
+  logAction(settings.currentUser?.name||'system','change_theme',color);
+}
+
+function toggleDarkMode(){
+  settings.darkMode = !settings.darkMode;
+  applySettings();
+  saveAll();
+  logAction(settings.currentUser?.name||'system','toggle_dark',settings.darkMode?'on':'off');
+}
+
+function applySettings(){
+  document.documentElement.style.setProperty('--accent', settings.themeColor || '#198754');
+  document.documentElement.style.setProperty('--accent-hover', settings.themeColor || '#157347');
+  if(settings.darkMode) document.body.classList.add('dark'); else document.body.classList.remove('dark');
+  document.getElementById('themeColor').value = settings.themeColor || '#198754';
+  if(settings.currentUser) document.getElementById('currentUser').innerText = `${settings.currentUser.name} (${settings.currentUser.role})`; else document.getElementById('currentUser').innerText = 'Not logged in';
+}
+
+/* ---------- Login modal / current user ---------- */
+function openLoginModal(){ document.getElementById('loginModal').style.display='flex' }
+function closeLoginModal(){ document.getElementById('loginModal').style.display='none' }
+function doLogin(){
+  const selectedId = document.getElementById('loginAs').value;
+  const user = staffs.find(s=>s.id === selectedId);
+  if(!user) return alert('Select a user');
+  // if user has password, match it (we don't enforce)
+  settings.currentUser = {name:user.name,role:user.role,id:user.id};
+  document.getElementById('currentUser').innerText = `${user.name} (${user.role})`;
+  closeLoginModal();
+  logAction(user.name,'login','logged in');
+  saveAll();
+}
+
+/* ---------- Utility: sample data generator (for testing) ---------- */
+function generateSampleData(count=30){
+  if(!confirm('Generate sample medicines and sales? This will add to existing data.')) return;
+  const sampleMeds = ['Paracetamol','Amoxicillin','Cough Syrup','Vitamin C','Metformin','Lisinopril','Ibuprofen','Aspirin','Azithromycin','Omeprazole'];
+  for(let i=0;i<sampleMeds.length;i++){
+    medicines.push({
+      id:Date.now()+Math.random(),
+      idStr: Date.now()+Math.random(),
+      name: sampleMeds[i] + ' ' + (i+1),
+      type: i%2? 'Tablet':'Capsule',
+      supplier: 'Supplier'+((i%3)+1),
+      expiry: new Date(Date.now() + ((30 + i*10)*24*60*60*1000)).toISOString().slice(0,10),
+      price: (50 + i*10),
+      stock: 20 + i*5,
+      time: new Date().toLocaleString()
+    });
+  }
+
+  // sample staff
+  staffs.push({id:uid('s'),name:'Admin',role:'Admin',added:new Date().toLocaleString(),password:null});
+  staffs.push({id:uid('s'),name:'Pharmacist',role:'Pharmacist',added:new Date().toLocaleString(),password:null});
+
+  // sample sales
+  for(let i=0;i<20;i++){
+    const med = medicines[Math.floor(Math.random()*medicines.length)];
+    const qty = Math.floor(Math.random()*3)+1;
+    med.stock = Math.max(0, med.stock - qty);
+    sales.push({id:Date.now()+i, patient:'Patient '+(i+1), meds:[{name:med.name,qty}], total: qty*med.price, time: new Date(Date.now()-i*86400000).toLocaleString()});
+  }
+
+  renderAll(); saveAll(); logAction('system','generate_sample','generated sample data');
+  alert('Sample data generated');
+}
+
+/* ---------- Misc helpers ---------- */
+function openEditMedById(id){ openEditMed(id) }
+function printInvoiceForLast(){ if(sales.length) printInvoice(sales[sales.length-1]) }
+function printAllMeds(){ exportMedsCSV(); }
+
+/* ---------- Small helpers for download of JSON and CSV ---------- */
+/* already included downloadText and csvEscape above */
+
+/* ---------- Delete helpers ---------- */
+function clearAllData(){
+  if(!confirm('Clear ALL local data?')) return;
+  medicines=[];sales=[];patients=[];staffs=[];audit=[];settings={themeColor:'#198754',darkMode:false,lockPassword:'20439736',currentUser:null};
+  saveAll(); renderAll(); applySettings(); logAction('system','clear_data','cleared all');
+}
+
+/* ---------- Init: load or seed demo  ---------- */
+(function init(){
+  loadAll();
+
+  // If no data, add original demo meds like in your original code
+  if(medicines.length===0){
+    medicines = [
+      {id:1,name:"Paracetamol",type:"Tablet",supplier:"MedCo",expiry:"2026-01-01",price:50,stock:100,time:new Date().toLocaleString()},
+      {id:2,name:"Ibuprofen",type:"Capsule",supplier:"PharmaPlus",expiry:"2025-12-30",price:80,stock:60,time:new Date().toLocaleString()}
+    ];
+  }
+  // ensure at least two staff (as you asked)
+  if(staffs.length<2){
+    staffs = staffs.concat([
+      {id:uid('s'),name:'Admin',role:'Admin',added:new Date().toLocaleString(),password:null},
+      {id:uid('s'),name:'Pharmacist',role:'Pharmacist',added:new Date().toLocaleString(),password:null}
+    ]);
+  }
+  applySettings();
+  renderAll();
+  updatePatientMedSelect();
+  checkAlerts();
+  logAction('system','init','app initialized');
+  saveAll();
+
+  // Wire up some UI quick functions that exist in original code for compatibility
+  window.addMedicine = addMedicine;
+  window.giveMedicine = giveMedicine;
+  window.addStaff = addStaff;
+  window.lockSettings = lockSettings;
+  window.checkPassword = checkPassword;
+  window.changeTheme = changeTheme;
+  window.updatePatientMedSelect = updatePatientMedSelect;
+  window.renderMeds = renderMeds;
+  window.renderSales = renderSales;
+  window.renderPatients = renderPatients;
+  window.renderStaffs = renderStaffs;
+})();
+
+/* ============================================================
+   End of script
+   ============================================================ */
+</script>
+</body>
+</html>
